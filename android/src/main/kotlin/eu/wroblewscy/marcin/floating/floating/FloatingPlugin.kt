@@ -22,98 +22,101 @@ import kotlin.concurrent.fixedRateTimer
 
 /** FloatingPlugin */
 class FloatingPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-  /// The MethodChannel that will the communication between Flutter and native Android
-  ///
-  /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-  /// when the Flutter Engine is detached from the Activity
-  private lateinit var channel: MethodChannel
-  private lateinit var context: Context
-  private lateinit var activity: Activity
+    /// The MethodChannel that will the communication between Flutter and native Android
+    ///
+    /// This local reference serves to register the plugin with the Flutter Engine and unregister it
+    /// when the Flutter Engine is detached from the Activity
+    private lateinit var channel: MethodChannel
+    private lateinit var context: Context
+    private lateinit var activity: Activity
 
-  override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "floating")
-    channel.setMethodCallHandler(this)
-    context = flutterPluginBinding.applicationContext
-  }
-
-  @RequiresApi(Build.VERSION_CODES.N)
-  override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
-    when (call.method) {
-      "enablePip" -> {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          val enterPictureInPictureModeMethod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-              try {
-                  PictureInPictureParams.Builder::class.java.getMethod("setAutoEnterEnabled", Boolean::class.javaPrimitiveType)
-              } catch (e: NoSuchMethodException) {
-                  null
-              }
-          } else {
-              null
-          }
-
-          val builder = PictureInPictureParams.Builder()
-              .setAspectRatio(
-                  Rational(
-                      call.argument("numerator") ?: 16,
-                      call.argument("denominator") ?: 9
-                  )
-              )
-
-          if (enterPictureInPictureModeMethod != null) {
-              try {
-                  enterPictureInPictureModeMethod.invoke(builder, true)
-              } catch (e: Exception) {
-                  // ignore
-              }
-          }
-          val sourceRectHintLTRB = call.argument<List<Int>>("sourceRectHintLTRB")
-          if (sourceRectHintLTRB?.size == 4) {
-            val bounds = Rect(
-              sourceRectHintLTRB[0],
-              sourceRectHintLTRB[1],
-              sourceRectHintLTRB[2],
-              sourceRectHintLTRB[3]
-            )
-            builder.setSourceRectHint(bounds)
-          }
-          result.success(
-            activity.enterPictureInPictureMode(builder.build())
-          )
-        } else {
-          result.success(activity.enterPictureInPictureMode())
-        }
-      }
-      "pipAvailable" -> {
-        result.success(
-          activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-        )
-      }
-      "inPipAlready" -> {
-        result.success(
-          activity.isInPictureInPictureMode
-        )
-      }
-      else -> result.notImplemented()
+    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "floating")
+        channel.setMethodCallHandler(this)
+        context = flutterPluginBinding.applicationContext
     }
-  }
 
-  override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
-    channel.setMethodCallHandler(null)
-  }
+    @RequiresApi(Build.VERSION_CODES.N)
+    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+        when (call.method) {
+            "enablePip" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val setAutoEnterEnabledMethod = try {
+                        PictureInPictureParams.Builder::class.java.getMethod(
+                            "setAutoEnterEnabled",
+                            Boolean::class.javaPrimitiveType
+                        )
+                    } catch (e: NoSuchMethodException) {
+                        null
+                    }
 
-  override fun onDetachedFromActivity() {}
+                    val builder = PictureInPictureParams.Builder()
+                        .setAspectRatio(
+                            Rational(
+                                call.argument("numerator") ?: 16,
+                                call.argument("denominator") ?: 9
+                            )
+                        )
 
-  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-    useBinding(binding)
-  }
+                    if (setAutoEnterEnabledMethod != null) {
+                        try {
+                            setAutoEnterEnabledMethod.invoke(builder, true)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    }
 
-  override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-    useBinding(binding)
-  }
+                    val sourceRectHintLTRB = call.argument<List<Int>>("sourceRectHintLTRB")
+                    if (sourceRectHintLTRB?.size == 4) {
+                        val bounds = Rect(
+                            sourceRectHintLTRB[0],
+                            sourceRectHintLTRB[1],
+                            sourceRectHintLTRB[2],
+                            sourceRectHintLTRB[3]
+                        )
+                        builder.setSourceRectHint(bounds)
+                    }
+                    result.success(
+                        activity.enterPictureInPictureMode(builder.build())
+                    )
+                } else {
+                    result.success(activity.enterPictureInPictureMode())
+                }
+            }
 
-  override fun onDetachedFromActivityForConfigChanges() {}
+            "pipAvailable" -> {
+                result.success(
+                    activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                )
+            }
 
-  fun useBinding(binding: ActivityPluginBinding) {
-    activity = binding.activity
-  }
+            "inPipAlready" -> {
+                result.success(
+                    activity.isInPictureInPictureMode
+                )
+            }
+
+            else -> result.notImplemented()
+        }
+    }
+
+    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        channel.setMethodCallHandler(null)
+    }
+
+    override fun onDetachedFromActivity() {}
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        useBinding(binding)
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        useBinding(binding)
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {}
+
+    fun useBinding(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
 }
