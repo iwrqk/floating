@@ -41,13 +41,31 @@ class FloatingPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     when (call.method) {
       "enablePip" -> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          val enterPictureInPictureModeMethod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+              try {
+                  PictureInPictureParams.Builder::class.java.getMethod("setAutoEnterEnabled", Boolean::class.javaPrimitiveType)
+              } catch (e: NoSuchMethodException) {
+                  null
+              }
+          } else {
+              null
+          }
+
           val builder = PictureInPictureParams.Builder()
-            .setAspectRatio(
-              Rational(
-                call.argument("numerator") ?: 16,
-                call.argument("denominator") ?: 9
+              .setAspectRatio(
+                  Rational(
+                      call.argument("numerator") ?: 16,
+                      call.argument("denominator") ?: 9
+                  )
               )
-            ).setAutoEnterEnabled(true)
+
+          if (enterPictureInPictureModeMethod != null) {
+              try {
+                  enterPictureInPictureModeMethod.invoke(builder, true)
+              } catch (e: Exception) {
+                  // ignore
+              }
+          }
           val sourceRectHintLTRB = call.argument<List<Int>>("sourceRectHintLTRB")
           if (sourceRectHintLTRB?.size == 4) {
             val bounds = Rect(
